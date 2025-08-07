@@ -2,3 +2,5 @@ ultralytics
 opencv-python
 pygame
 numpy
+mediapipe>=0.10.8
+opencv-python>=4.9.0
