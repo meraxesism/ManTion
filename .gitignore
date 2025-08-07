@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+env/
+
+# Logs and runtime files
+detections.log
+detections/
+
+# VSCode or IDE config (optional)
+.vscode/

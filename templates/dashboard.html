@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ManTion Safety Control Center</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0e1a;
+            color: #e8eaed;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+            border-bottom: 1px solid #374151;
+            padding: 1.5rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .logo-text h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #f9fafb;
+            margin-bottom: 0.25rem;
+        }
+        
+        .logo-text p {
+            font-size: 0.875rem;
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #d1d5db;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .alert-banner {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            border: 1px solid #fca5a5;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: none;
+            box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3);
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .alert-banner.active {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .alert-icon {
+            font-size: 2rem;
+            animation: shake 0.5s ease-in-out infinite;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+        
+        .alert-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .alert-content p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stats-panel {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 2rem;
+            height: fit-content;
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f9fafb;
+        }
+        
+        .panel-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            border: 1px solid #4b5563;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        
+        .stat-unit {
+            font-size: 1rem;
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #d1d5db;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .video-panel {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            border: 1px solid #374151;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        
+        .video-header {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            padding: 1.5rem;
+            border-bottom: 1px solid #4b5563;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .video-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f9fafb;
+        }
+        
+        .video-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #10b981;
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            aspect-ratio: 16/9;
+            overflow: hidden;
+        }
+        
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: linear-gradient(45deg, #1f2937 25%, transparent 25%), 
+                        linear-gradient(-45deg, #1f2937 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #1f2937 75%), 
+                        linear-gradient(-45deg, transparent 75%, #1f2937 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        
+        .video-overlay {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: #10b981;
+            font-weight: 500;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+            border-top: 1px solid #374151;
+            margin-top: 2rem;
+        }
+        
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .status-bar {
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">M</div>
+                <div class="logo-text">
+                    <h1>ManTion Safety Control</h1>
+                    <p>Industrial Safety Monitoring System</p>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="status-item">
+                    <span id="uptime">00:00:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="alert-banner" id="alertBanner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+                <h3>SAFETY ALERT</h3>
+                <p id="alertMessage">Human presence detected in restricted area</p>
+            </div>
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="stats-panel">
+                <div class="panel-header">
+                    <div class="panel-icon">📊</div>
+                    <span>System Metrics</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">
+                            <span id="totalDetections">0</span>
+                            <span class="stat-unit">detections</span>
+                        </div>
+                        <div class="stat-label">Total Detections</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">
+                            <span id="alarmsTriggered">0</span>
+                            <span class="stat-unit">alarms</span>
+                        </div>
+                        <div class="stat-label">Alarms Triggered</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">
+                            <span id="activeCameras">1</span>
+                            <span class="stat-unit">cameras</span>
+                        </div>
+                        <div class="stat-label">Active Cameras</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">
+                            <span id="lastDetection">--</span>
+                        </div>
+                        <div class="stat-label">Last Detection</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-panel">
+                <div class="video-header">
+                    <div class="video-title">Assembly Line Monitor</div>
+                    <div class="video-status">
+                        <div class="status-dot"></div>
+                        <span>Live Feed</span>
+                    </div>
+                </div>
+                <div class="video-container">
+                    <img id="videoFeed1" class="video-feed" src="" alt="Live Camera Feed">
+                    <div class="video-overlay" id="detectionOverlay" style="display: none;">
+                        HUMAN DETECTED
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>ManTion Safety Control Center v2.0 | Enterprise Industrial Monitoring Solution</p>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        function updateStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalDetections').textContent = data.total_detections;
+                    document.getElementById('alarmsTriggered').textContent = data.alarms_triggered;
+                    document.getElementById('activeCameras').textContent = data.cameras_active;
+                    
+                    // Update uptime
+                    const hours = Math.floor(data.uptime_seconds / 3600);
+                    const minutes = Math.floor((data.uptime_seconds % 3600) / 60);
+                    const seconds = data.uptime_seconds % 60;
+                    document.getElementById('uptime').textContent = 
+                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Update last detection
+                    if (data.last_detection) {
+                        const lastDet = new Date(data.last_detection);
+                        document.getElementById('lastDetection').textContent = lastDet.toLocaleTimeString();
+                    }
+                });
+        }
+        
+        socket.on('detection_alert', function(data) {
+            const alertBanner = document.getElementById('alertBanner');
+            const alertMessage = document.getElementById('alertMessage');
+            const detectionOverlay = document.getElementById('detectionOverlay');
+            
+            alertMessage.textContent = `Human detected on ${data.camera_id} at ${new Date(data.timestamp).toLocaleTimeString()}`;
+            alertBanner.classList.add('active');
+            detectionOverlay.style.display = 'block';
+            
+            // Hide alert after 8 seconds
+            setTimeout(() => {
+                alertBanner.classList.remove('active');
+            }, 8000);
+            
+            // Hide overlay after 3 seconds
+            setTimeout(() => {
+                detectionOverlay.style.display = 'none';
+            }, 3000);
+            
+            updateStats();
+        });
+        
+        socket.on('video_feed_camera_1', function(frameData) {
+            const img = document.getElementById('videoFeed1');
+            const blob = new Blob([frameData], { type: 'image/jpeg' });
+            img.src = URL.createObjectURL(blob);
+        });
+        
+        socket.on('connect', function() {
+            console.log('Connected to ManTion Safety Control Center');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from ManTion Safety Control Center');
+        });
+        
+        setInterval(updateStats, 5000);
+        updateStats();
+    </script>
+</body>
+</html> 
