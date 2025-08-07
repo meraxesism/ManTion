@@ -10,6 +10,9 @@
 - **Professional Visual Alerts:** Bold, non-intrusive overlays for both detection and safe states.
 - **Audible Safety Alarm:** Reliable WAV-based alarm system with robust error handling.
 - **Comprehensive Logging:** All detections, alarms, and errors are timestamped and logged for safety audits.
+- **Automatic Image Capture on Detection:** Captures and saves 2–3 images per detection event with precise timestamped filenames for traceability.
+- **Full-Screen Display Mode:** Automatically adjusts to fit screen for immersive industrial monitoring.
+- **Hand Keypoint Detection (via Pose Model):** Displays extended keypoints including hands and wrists for enhanced safety coverage.
 - **Industrial Reliability:** Graceful shutdown, error handling, and resource management.
 - **Easy Configuration:** All parameters (model, camera, thresholds, alarm, logs) in a single `config.py` file.
 - **Modular, Maintainable Codebase:** Clean, extensible Python modules for rapid adaptation and scaling.
@@ -35,7 +38,9 @@
 python main.py
 ```
 - The system will open a live camera feed with real-time skeleton overlays.
-- If a human is detected, a visual warning and audible alarm will trigger.
+- If a human is detected:
+  - A visual warning and audible alarm will trigger.
+  - 2–3 images will be saved automatically with current date and time.
 - All events and errors are logged to `detections.log`.
 - Press `q` to quit safely.
 
@@ -47,6 +52,7 @@ python main.py
 - **Detection Threshold:** Adjust `DETECTION_THRESHOLD` for sensitivity.
 - **Alarm Sound:** Use any WAV file and update `ALARM_SOUND_PATH`.
 - **Logging:** All logs are written to the path in `LOG_PATH`.
+- **Image Saving Directory:** Change the output folder path in `config.py` under `IMAGE_SAVE_PATH`.
 
 ---
 
