@@ -1,137 +1,166 @@
 import cv2
-import pyautogui
-from detector import Detector
-from hand_detector import HandDetector
-from alarm import play_alarm
-from utils import draw_detections
-from config import CAMERA_INDEX
 import logging
-import sys
-import pygame
-import os
-import sqlite3
-from datetime import datetime
+import platform
 import time
+from alarm import Alarm
+from config import CAMERA_INDEX
+from utils import setup_logging
+from line_control import LineController
+from detector import Detector  # YOLOv8 + YOLOv8-Pose
+from hand_detector import HandDetector  # Use user's proven hand detector
 
-# Clip recording duration (seconds)
-CLIP_DURATION = 5
-DB_FILE = "detections.db"
+# Setup logging
+setup_logging()
+logger = logging.getLogger(__name__)
 
-def init_db():
-    """Initialize SQLite database."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS detections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            detection_type TEXT,
-            clip_path TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+INDICATOR_POS = (20, 80)
 
-def log_detection_db(detection_type, clip_path):
-    """Log detection in SQLite DB."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO detections (timestamp, detection_type, clip_path) VALUES (?, ?, ?)",
-        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), detection_type, clip_path)
-    )
-    conn.commit()
-    conn.close()
 
-def save_detection_clip(cap, duration=CLIP_DURATION):
-    """Records a short video clip from the camera."""
-    now = datetime.now()
-    date_folder = now.strftime("%Y-%m-%d")
-    time_stamp = now.strftime("%H-%M-%S")
+def draw_line_status(frame, running: bool):
+    color = (0, 255, 0) if running else (0, 0, 255)
+    text = 'LINE: RUNNING' if running else 'LINE: STOPPED'
+    cv2.rectangle(frame, (15, 20), (360, 110), (0, 0, 0), -1)
+    cv2.putText(frame, text, INDICATOR_POS, cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2, cv2.LINE_AA)
+    return frame
 
-    folder_path = os.path.join("detections", date_folder)
-    os.makedirs(folder_path, exist_ok=True)
 
-    filename = f"detection_clip_{time_stamp}.mp4"
-    file_path = os.path.join(folder_path, filename)
+def open_capture(index: int) -> cv2.VideoCapture:
+    is_windows = platform.system().lower() == 'windows'
+    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW) if is_windows else cv2.VideoCapture(index)
+    if not cap.isOpened() and is_windows:
+        cap = cv2.VideoCapture(index)
+    if cap and cap.isOpened():
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+    return cap
 
-    # Get video properties
-    fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(file_path, fourcc, fps, (width, height))
+# ----- Hand gesture helpers (MediaPipe Hands landmarks) -----
+TIPS = [4, 8, 12, 16, 20]
+PIPS = [3, 6, 10, 14, 18]
 
-    start_time = time.time()
-    while time.time() - start_time < duration:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        out.write(frame)
+def classify_hand_state(hand_landmarks):
+    """Classify 'open' vs 'fist' using simple fingertip-vs-PIP y heuristic (image origin top-left).
+    Returns ('open'|'fist'|'none')."""
+    if not hand_landmarks or len(hand_landmarks) < 21:
+        return 'none'
+    extended = 0
+    for tip, pip in zip(TIPS[1:], PIPS[1:]):  # ignore thumb for robustness
+        if hand_landmarks[tip][1] < hand_landmarks[pip][1]:
+            extended += 1
+    # Thumb horizontal distance as proxy for openness
+    thumb_open = abs(hand_landmarks[4][0] - hand_landmarks[3][0]) > 10
+    if extended >= 3 and thumb_open:
+        return 'open'
+    if extended <= 1:
+        return 'fist'
+    return 'none'
 
-    out.release()
-    logging.info(f"Saved detection clip: {file_path}")
-    return file_path
 
 def main():
-    logging.basicConfig(filename='detections.log', level=logging.INFO,
-                        format='%(asctime)s %(levelname)s: %(message)s')
+    alarm = Alarm()
+    line = LineController()
 
-    init_db()
+    # Initialize detectors
+    detector = Detector()  # YOLO general + YOLO pose overlay
+    hand = HandDetector(max_hands=2, detection_conf=0.7, tracking_conf=0.7)
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # Debounce state for gestures
+    last_state = 'none'
+    last_change_ms = 0
+    debounce_ms = 400
 
-    screen_width, screen_height = pyautogui.size()
-    cv2.namedWindow('Assembly Line Monitor', cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty('Assembly Line Monitor', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-    detector = Detector()
-    hand_detector = HandDetector()
-    alarm_triggered = False
-
+    cap = None
     try:
+        for idx in [CAMERA_INDEX, 0, 1, 2]:
+            cap = open_capture(idx)
+            if cap.isOpened():
+                current_index = idx
+                logger.info(f"Camera opened on index {current_index}")
+                break
+        if cap is None or not cap.isOpened():
+            raise IOError("Unable to open any camera.")
+
+        cv2.namedWindow('Assembly Line Monitor', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Assembly Line Monitor', 1280, 720)
+
+        failed_reads = 0
+        max_failed_reads = 60
+
         while True:
             ret, frame = cap.read()
             if not ret:
-                logging.error('Failed to read from camera.')
-                break
+                failed_reads += 1
+                if failed_reads >= max_failed_reads:
+                    cap.release()
+                    cap = open_capture(current_index)
+                    failed_reads = 0
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+                continue
+            failed_reads = 0
 
-            detections = detector.detect(frame)
-            if detections:
-                frame = draw_detections(frame, detections)
-                cv2.putText(frame, "HUMAN DETECTED!", (50, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
-                if not alarm_triggered:
-                    play_alarm()
-                    alarm_triggered = True
-                    clip_path = save_detection_clip(cap, CLIP_DURATION)
-                    log_detection_db("human", clip_path)
+            # 1) YOLO general detection + YOLO-Pose overlay
+            processed, human_detected, detections = detector.detect(frame)
+
+            # 2) Hand detection (user's module)
+            processed, hands = hand.detect_hands(processed, draw=True)
+
+            # 3) Gesture classification with debounce
+            state_text = ""
+            current_state = 'none'
+            if hands:
+                # choose first hand (or refine to pick the larger hand bbox if needed)
+                current_state = classify_hand_state(hands[0])
+            now_ms = int(time.time() * 1000)
+            if current_state != last_state and now_ms - last_change_ms > debounce_ms:
+                last_state = current_state
+                last_change_ms = now_ms
+                if last_state == 'fist':
+                    line.stop_line()
+                    alarm.trigger()
+                elif last_state == 'open':
+                    line.start_line()
+                    alarm.stop()
+            if current_state in ('fist', 'open'):
+                state_text = f"Gesture: {current_state}"
             else:
-                cv2.putText(frame, "SAFE", (50, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-                alarm_triggered = False
+                state_text = "Keys: S=Stop (fist), G=Start (open), Q=Quit"
 
-            frame, hand_landmarks = hand_detector.detect_hands(frame, draw=True)
-            if hand_landmarks:
-                logging.info(f"Detected {len(hand_landmarks)} hand(s) with landmarks.")
+            # 4) Status overlays
+            processed = draw_line_status(processed, line.is_running())
+            if human_detected:
+                cv2.putText(processed, "HUMAN DETECTED!", (20, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2, cv2.LINE_AA)
+            if state_text:
+                cv2.putText(processed, state_text, (20, 170), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 50), 2, cv2.LINE_AA)
 
-            frame = cv2.resize(frame, (screen_width, screen_height))
-            cv2.imshow('Assembly Line Monitor', frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.imshow('Assembly Line Monitor', processed)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 break
+            # Keyboard fallback
+            if key == ord('s'):
+                line.stop_line()
+                alarm.trigger()
+            elif key == ord('g'):
+                line.start_line()
+                alarm.stop()
 
     except Exception as e:
-        logging.error(f"Fatal error: {e}")
-
+        logger.critical(f"Fatal error: {e}", exc_info=True)
     finally:
-        cap.release()
+        if cap is not None and cap.isOpened():
+            cap.release()
         cv2.destroyAllWindows()
-        pygame.mixer.music.stop()
-        logging.info('System shutdown.')
+        alarm.stop()
+        # hand detector cleanup
+        try:
+            hand.release()
+        except Exception:
+            pass
+
 
 if __name__ == "__main__":
     main()
