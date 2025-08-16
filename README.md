@@ -5,7 +5,7 @@
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Pose-orange)](https://ultralytics.com)
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Hands-green)](https://mediapipe.dev)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.x-red)](https://opencv.org)
-[![License](https://img.shields.io/badge/License-Industrial-gold)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue)](LICENSE)
 
 > **Transforming manufacturing safety through intelligent computer vision and gesture recognition**
 
@@ -242,12 +242,12 @@ pip install -r requirements-dev.txt  # Additional dev dependencies
 
 ## 📄 **License & Support**
 
-**ManTion** is engineered for industrial deployment. For **enterprise licensing**, **custom development**, or **production support**, contact our team.
+**ManTion** is licensed under the **Apache License 2.0**, providing maximum flexibility for both commercial and open-source use while offering strong patent protection and liability disclaimers essential for industrial safety systems.
+
+For **enterprise support**, **custom development**, or **production consulting services**, contact our team.
 
 ### **Community Support**
 - 🐛 **Issues**: [GitHub Issues](https://github.com/meraxesism/ManTion/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/meraxesism/ManTion/discussions)  
-- 📖 **Documentation**: [Wiki](https://github.com/meraxesism/ManTion/wiki)
 
 ---
 
