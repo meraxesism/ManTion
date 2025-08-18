@@ -22,16 +22,23 @@ COLORS = {
 def setup_logging():
     # Configure logging once
     if not logging.getLogger().handlers:
-        logging.basicConfig(
-            filename=LOG_PATH,
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        # Also log to console
-        console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        console.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logging.getLogger().addHandler(console)
+        try:
+            logging.basicConfig(
+                filename=LOG_PATH,
+                level=logging.INFO,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            # Also log to console
+            console = logging.StreamHandler()
+            console.setLevel(logging.INFO)
+            console.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            logging.getLogger().addHandler(console)
+        except Exception as e:
+            print(f"File logging failed: {e}. Falling back to console-only logging.")
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
 
 
 def log_detection_event(label: str, confidence: float, bbox):

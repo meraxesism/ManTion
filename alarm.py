@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class Alarm:
     def __init__(self):
         self.is_loaded = False
+        self._lock = threading.Lock()
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init()
@@ -34,17 +35,21 @@ class Alarm:
             logger.error(f"Alarm playback error: {e}")
 
     def trigger(self):
-        if self.alarm_thread is None or not self.alarm_thread.is_alive():
-            self.alarm_thread = threading.Thread(target=self._play, daemon=True)
-            self.alarm_thread.start()
-            logger.info('Alarm triggered')
+        with self._lock:
+            if self.alarm_thread is None or not self.alarm_thread.is_alive():
+                self.alarm_thread = threading.Thread(target=self._play, daemon=True)
+                self.alarm_thread.start()
+                logger.info('Alarm triggered')
+            else:
+                logger.info('Alarm already running, trigger ignored.')
 
     def stop(self):
-        try:
-            if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
-                pygame.mixer.music.stop()
-        except Exception:
-            pass
+        with self._lock:
+            try:
+                if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+                    pygame.mixer.music.stop()
+            except Exception:
+                pass
 
     def __del__(self):
         try:

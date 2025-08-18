@@ -2,6 +2,8 @@ import cv2
 import logging
 import platform
 import time
+import os
+import numpy as np
 from alarm import Alarm
 from config import CAMERA_INDEX
 from utils import setup_logging
@@ -61,16 +63,13 @@ def classify_hand_state(hand_landmarks):
 def main():
     alarm = Alarm()
     line = LineController()
-
     # Initialize detectors
     detector = Detector()  # YOLO general + YOLO pose overlay
     hand = HandDetector(max_hands=2, detection_conf=0.7, tracking_conf=0.7)
-
     # Debounce state for gestures
     last_state = 'none'
     last_change_ms = 0
-    debounce_ms = 400
-
+    debounce_ms = int(os.environ.get('GESTURE_DEBOUNCE_MS', 400))
     cap = None
     try:
         for idx in [CAMERA_INDEX, 0, 1, 2]:
@@ -81,19 +80,17 @@ def main():
                 break
         if cap is None or not cap.isOpened():
             raise IOError("Unable to open any camera.")
-
         cv2.namedWindow('Assembly Line Monitor', cv2.WINDOW_NORMAL)
         cv2.resizeWindow('Assembly Line Monitor', 1280, 720)
-
         failed_reads = 0
         max_failed_reads = 60
-
         while True:
             ret, frame = cap.read()
             if not ret:
                 failed_reads += 1
                 if failed_reads >= max_failed_reads:
-                    cap.release()
+                    if cap is not None:
+                        cap.release()
                     cap = open_capture(current_index)
                     failed_reads = 0
                 key = cv2.waitKey(1) & 0xFF
@@ -101,13 +98,10 @@ def main():
                     break
                 continue
             failed_reads = 0
-
             # 1) YOLO general detection + YOLO-Pose overlay
             processed, human_detected, detections = detector.detect(frame)
-
             # 2) Hand detection (user's module)
             processed, hands = hand.detect_hands(processed, draw=True)
-
             # 3) Gesture classification with debounce
             state_text = ""
             current_state = 'none'
@@ -128,14 +122,12 @@ def main():
                 state_text = f"Gesture: {current_state}"
             else:
                 state_text = "Keys: S=Stop (fist), G=Start (open), Q=Quit"
-
             # 4) Status overlays
             processed = draw_line_status(processed, line.is_running())
             if human_detected:
                 cv2.putText(processed, "HUMAN DETECTED!", (20, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2, cv2.LINE_AA)
             if state_text:
                 cv2.putText(processed, state_text, (20, 170), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 50), 2, cv2.LINE_AA)
-
             cv2.imshow('Assembly Line Monitor', processed)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -147,17 +139,36 @@ def main():
             elif key == ord('g'):
                 line.start_line()
                 alarm.stop()
-
     except Exception as e:
         logger.critical(f"Fatal error: {e}", exc_info=True)
+        # User-facing error notification
+        try:
+            cv2.namedWindow('Error', cv2.WINDOW_NORMAL)
+            cv2.putText(
+                np.zeros((200, 600, 3), dtype=np.uint8),
+                f"Fatal error: {e}",
+                (10, 100),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 0, 255),
+                2,
+                cv2.LINE_AA
+            )
+            cv2.imshow('Error', np.zeros((200, 600, 3), dtype=np.uint8))
+            cv2.waitKey(3000)
+            cv2.destroyWindow('Error')
+        except Exception:
+            pass
     finally:
-        if cap is not None and cap.isOpened():
+        if cap is not None and hasattr(cap, 'isOpened') and cap.isOpened():
             cap.release()
         cv2.destroyAllWindows()
-        alarm.stop()
+        if alarm is not None:
+            alarm.stop()
         # hand detector cleanup
         try:
-            hand.release()
+            if hand is not None:
+                hand.release()
         except Exception:
             pass
 

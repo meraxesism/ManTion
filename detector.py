@@ -4,6 +4,7 @@ from config import YOLO_MODEL_PATH, YOLO_POSE_MODEL_PATH, DETECTION_THRESHOLD
 import numpy as np
 import logging
 from utils import draw_pose_results, log_detection_event
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +14,11 @@ TEXT_COLOR = (255, 255, 255)
 class Detector:
     def __init__(self):
         try:
+            device = os.environ.get('YOLO_DEVICE', 'cpu')
             self.det_model = YOLO(YOLO_MODEL_PATH)
             self.pose_model = YOLO(YOLO_POSE_MODEL_PATH)
-            logger.info(f"YOLO models loaded: det={YOLO_MODEL_PATH}, pose={YOLO_POSE_MODEL_PATH}")
+            self.device = device
+            logger.info(f"YOLO models loaded: det={YOLO_MODEL_PATH}, pose={YOLO_POSE_MODEL_PATH}, device={device}")
         except Exception as e:
             logger.error(f"Model loading error: {e}")
             raise
@@ -26,7 +29,7 @@ class Detector:
         detections_info = []
         try:
             # 1) General detection (person, etc.)
-            det_results = self.det_model(frame, device='cpu', conf=DETECTION_THRESHOLD)
+            det_results = self.det_model(frame, device=self.device, conf=DETECTION_THRESHOLD)
             for r in det_results:
                 if getattr(r, 'boxes', None) is not None and len(r.boxes) > 0:
                     b_xyxy = r.boxes.xyxy
@@ -47,7 +50,7 @@ class Detector:
                             cv2.putText(processed_frame, f"{label} {conf:.2f}", (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, TEXT_COLOR, 2, cv2.LINE_AA)
 
             # 2) YOLOv8-Pose for skeleton overlay (humans only)
-            pose_results = self.pose_model(frame, device='cpu', conf=DETECTION_THRESHOLD)
+            pose_results = self.pose_model(frame, device=self.device, conf=DETECTION_THRESHOLD)
             for r in pose_results:
                 if getattr(r, 'keypoints', None) is not None and r.keypoints is not None:
                     try:
