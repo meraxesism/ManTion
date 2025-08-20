@@ -12,10 +12,26 @@ class Alarm:
         self._lock = threading.Lock()
         try:
             if not pygame.mixer.get_init():
-                pygame.mixer.init()
+                # Initialize with specific format to handle more audio types
+                pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
             if ALARM_SOUND_PATH and os.path.exists(ALARM_SOUND_PATH):
-                pygame.mixer.music.load(ALARM_SOUND_PATH)
-                self.is_loaded = True
+                try:
+                    pygame.mixer.music.load(ALARM_SOUND_PATH)
+                    self.is_loaded = True
+                    logger.info(f"Alarm sound loaded successfully: {ALARM_SOUND_PATH}")
+                except pygame.error as pe:
+                    logger.warning(f"Failed to load alarm sound {ALARM_SOUND_PATH}: {pe}")
+                    # Try using a pygame example sound as fallback
+                    try:
+                        fallback_sound = os.path.join(os.path.dirname(pygame.__file__), 'examples', 'data', 'boom.wav')
+                        if os.path.exists(fallback_sound):
+                            pygame.mixer.music.load(fallback_sound)
+                            self.is_loaded = True
+                            logger.info(f"Using fallback alarm sound: {fallback_sound}")
+                        else:
+                            logger.warning("No fallback alarm sound available")
+                    except Exception:
+                        logger.warning("Could not load fallback alarm sound")
             else:
                 logger.warning(f"Alarm sound file not found: {ALARM_SOUND_PATH}")
         except Exception as e:
@@ -26,7 +42,6 @@ class Alarm:
     def _play(self):
         if not self.is_loaded:
             logger.warning("Alarm sound not loaded, cannot play.")
-            return
         try:
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():

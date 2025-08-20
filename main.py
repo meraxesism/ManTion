@@ -4,6 +4,7 @@ import platform
 import time
 import os
 import numpy as np
+import asyncio
 from alarm import Alarm
 from config import CAMERA_INDEX
 from utils import setup_logging
@@ -61,6 +62,14 @@ def classify_hand_state(hand_landmarks):
 
 
 def main():
+    # Ensure we're running in a proper event loop context
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    
     alarm = Alarm()
     line = LineController()
     # Initialize detectors

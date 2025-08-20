@@ -1,5 +1,8 @@
+
 ultralytics
 opencv-python
 pygame
 numpy
 mediapipe
+flask
+flask-cors
