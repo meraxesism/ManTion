@@ -6,6 +6,7 @@ import platform
 import os
 import numpy as np
 import asyncio
+from datetime import datetime
 from alarm import Alarm
 from line_control import LineController
 from detector import Detector
@@ -85,9 +86,14 @@ class CameraService:
         if not cap.isOpened() and is_windows:
             cap = cv2.VideoCapture(index)
         if cap and cap.isOpened():
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            # Prefer lower resolution for higher FPS and set MJPG if available
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
             cap.set(cv2.CAP_PROP_FPS, 30)
+            try:
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            except Exception:
+                pass
         return cap
     
     def _classify_hand_state(self, hand_landmarks):
@@ -155,6 +161,8 @@ class CameraService:
             failed_reads = 0
             max_failed_reads = 60
             
+            frame_count = 0
+            prev_processed = None
             while self.is_running:
                 ret, frame = self.cap.read()
                 if not ret:
@@ -170,18 +178,30 @@ class CameraService:
                     continue
                 
                 failed_reads = 0
-                
-                # 1) YOLO general detection + YOLO-Pose overlay
-                processed, human_detected, detections = self.detector.detect(frame)
-                self.status['human_detected'] = human_detected
-                
-                # 2) Hand detection
-                processed, hands = self.hand.detect_hands(processed, draw=True)
+                frame_count += 1
+
+                # Simple frame skipping to boost throughput (process every 2nd frame)
+                process_this = (frame_count % 2 == 0)
+                if process_this:
+                    # 1) YOLO general detection + YOLO-Pose overlay
+                    processed, human_detected, detections = self.detector.detect(frame)
+                    self.status['human_detected'] = human_detected
+                    
+                    # 2) Hand detection
+                    processed, hands = self.hand.detect_hands(processed, draw=True)
+                    prev_processed = processed
+                else:
+                    # Reuse last processed frame for display to keep UI smooth
+                    processed = prev_processed if prev_processed is not None else frame
                 
                 # 3) Gesture classification with debounce
                 state_text = ""
                 current_state = 'none'
-                if hands:
+                if process_this:
+                    # Only update gesture state when we actually processed hands
+                    if 'hands' not in locals():
+                        hands = []
+                if 'hands' in locals() and hands:
                     # choose first hand (or refine to pick the larger hand bbox if needed)
                     current_state = self._classify_hand_state(hands[0])
                 

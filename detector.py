@@ -29,7 +29,14 @@ class Detector:
         detections_info = []
         try:
             # 1) General detection (person, etc.)
-            det_results = self.det_model(frame, device=self.device, conf=DETECTION_THRESHOLD)
+            # Limit to 'person' class (0) and smaller inference size for speed
+            det_results = self.det_model(
+                frame,
+                device=self.device,
+                conf=DETECTION_THRESHOLD,
+                classes=[0],  # person only
+                imgsz=640
+            )
             for r in det_results:
                 if getattr(r, 'boxes', None) is not None and len(r.boxes) > 0:
                     b_xyxy = r.boxes.xyxy
@@ -49,20 +56,26 @@ class Detector:
                             cv2.rectangle(processed_frame, (x1, y1), (x2, y2), BOX_COLOR, 2)
                             cv2.putText(processed_frame, f"{label} {conf:.2f}", (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, TEXT_COLOR, 2, cv2.LINE_AA)
 
-            # 2) YOLOv8-Pose for skeleton overlay (humans only)
-            pose_results = self.pose_model(frame, device=self.device, conf=DETECTION_THRESHOLD)
-            for r in pose_results:
-                if getattr(r, 'keypoints', None) is not None and r.keypoints is not None:
-                    try:
-                        kps = r.keypoints.xy
-                        bxs = r.boxes.xyxy if getattr(r, 'boxes', None) is not None else np.zeros((0, 4))
-                        confs = r.boxes.conf if getattr(r, 'boxes', None) is not None else np.zeros((0,))
-                        kps = kps.cpu().numpy() if hasattr(kps, 'cpu') else np.asarray(kps)
-                        bxs = bxs.cpu().numpy() if hasattr(bxs, 'cpu') else np.asarray(bxs)
-                        confs = confs.cpu().numpy() if hasattr(confs, 'cpu') else np.asarray(confs)
-                        processed_frame = draw_pose_results(processed_frame, kps, bxs, confs, self.pose_model.names)
-                    except Exception as e:
-                        logger.warning(f"Pose draw error: {e}")
+            # 2) YOLOv8-Pose for skeleton overlay (only if a person was detected)
+            if human_detected:
+                pose_results = self.pose_model(
+                    frame,
+                    device=self.device,
+                    conf=DETECTION_THRESHOLD,
+                    imgsz=640
+                )
+                for r in pose_results:
+                    if getattr(r, 'keypoints', None) is not None and r.keypoints is not None:
+                        try:
+                            kps = r.keypoints.xy
+                            bxs = r.boxes.xyxy if getattr(r, 'boxes', None) is not None else np.zeros((0, 4))
+                            confs = r.boxes.conf if getattr(r, 'boxes', None) is not None else np.zeros((0,))
+                            kps = kps.cpu().numpy() if hasattr(kps, 'cpu') else np.asarray(kps)
+                            bxs = bxs.cpu().numpy() if hasattr(bxs, 'cpu') else np.asarray(bxs)
+                            confs = confs.cpu().numpy() if hasattr(confs, 'cpu') else np.asarray(confs)
+                            processed_frame = draw_pose_results(processed_frame, kps, bxs, confs, self.pose_model.names)
+                        except Exception as e:
+                            logger.warning(f"Pose draw error: {e}")
 
             return processed_frame, human_detected, detections_info
         except Exception as e:

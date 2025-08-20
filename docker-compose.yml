@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  mantion-app:
+    build: .
+    ports:
+      - "5000:5000"
+      - "3000:3000"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./models:/app/models
+      - /dev/video0:/dev/video0  # Camera access (Linux)
+    devices:
+      - /dev/video0:/dev/video0  # Camera device mapping
+    environment:
+      - CAMERA_INDEX=0
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    privileged: true  # Required for camera access
+    
+  # Optional: Redis for session management (enterprise deployments)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    
+  # Optional: PostgreSQL for production logging (enterprise deployments)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mantion
+      POSTGRES_USER: mantion
+      POSTGRES_PASSWORD: mantion_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

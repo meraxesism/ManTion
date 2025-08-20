@@ -1,0 +1,26 @@
+version: '3.8'
+
+# Development version with hot reload and easier setup
+services:
+  mantion-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/venv
+    devices:
+      - /dev/video0:/dev/video0  # Linux camera
+    environment:
+      - CAMERA_INDEX=0
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+      - NODE_ENV=development
+    restart: unless-stopped
+    privileged: true
+    stdin_open: true
+    tty: true
