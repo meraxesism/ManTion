@@ -97,13 +97,6 @@ Note: The numbers below are example results from a local test setup; your result
 - **Safety monitoring**: Human presence detection with alerts
 - **Clean room operations**: Reduces contamination risk
 
----
-
-## 📚 **Case Studies**
-
-- Automotive plant: Reduced unintended line stoppages by 42% using gesture debouncing and presence detection.
-- Food processing: Eliminated control-surface contamination via contactless start/stop.
-- R&D lab: Accelerated prototyping by enabling PLC control without wiring changes.
 
 ---
 
@@ -251,7 +244,7 @@ flowchart LR
 
   subgraph API["Backend API (Flask)"]
     APIServer[Flask REST API]
-    Camera[Camera Service (threaded)]
+    Camera["Camera Service (threaded)"]
   end
 
   subgraph AI["AI Processing"]
@@ -261,8 +254,8 @@ flowchart LR
   end
 
   subgraph CTRL["Control & Safety"]
-    Line[Line Controller (PLC-ready)]
-    Alarm[Alarm System]
+    Line["Line Controller (PLC-ready)"]
+    Alarm["Alarm System"]
   end
 
   DB[(SQLite: detections.db)]
@@ -280,6 +273,7 @@ flowchart LR
   YOLO --> DB
   Hands --> DB
   Models --- YOLO
+
 ```
 
 - Frontend: React + TypeScript UI with real-time status and overlays
@@ -389,8 +383,7 @@ For production deployments and enterprise needs:
 ### **Community & Support Channels**
 - 🐛 **GitHub Issues**: [Bug reports and feature requests](https://github.com/meraxesism/ManTion/issues)
 - 💬 **Discussions**: [Community forum for questions and ideas](https://github.com/meraxesism/ManTion/discussions)
-- 📧 **Enterprise Contact**: enterprise@mantion.ai
-- 📚 **Documentation**: [Comprehensive guides and API reference](https://docs.mantion.ai)
+- 📧 **Enterprise Contact**: meraxesism@gmail.com
 
 ## 🗺️ **Future Roadmap**
 Stay tuned for updates.
