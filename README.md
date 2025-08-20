@@ -53,11 +53,12 @@ Note: The numbers below are example results from a local test setup; your result
 
 ## 📚 **Documentation**
 
-- Architecture: docs/Architecture.md
-- Security Hardening: docs/Security.md
-- Enterprise Deployment: docs/EnterpriseDeployment.md
-- Case Studies: docs/CaseStudies.md
-- Performance & Scalability: docs/Performance.md
+- Docs index: [docs/](docs/)
+- Architecture: [docs/Architecture.md](docs/Architecture.md)
+- Security Hardening: [docs/Security.md](docs/Security.md)
+- Enterprise Deployment: [docs/EnterpriseDeployment.md](docs/EnterpriseDeployment.md)
+- Case Studies: [docs/CaseStudies.md](docs/CaseStudies.md)
+- Performance & Scalability: [docs/Performance.md](docs/Performance.md)
 
 ---
 
@@ -244,22 +245,22 @@ LOGGING_LEVEL = "INFO"                   # DEBUG, INFO, WARNING, ERROR
 
 ```mermaid
 flowchart LR
-  subgraph FE[Frontend]
+  subgraph FE["Frontend"]
     UI[React 18 UI]
   end
 
-  subgraph API[Backend API (Flask)]
+  subgraph API["Backend API (Flask)"]
     APIServer[Flask REST API]
     Camera[Camera Service (threaded)]
   end
 
-  subgraph AI[AI Processing]
+  subgraph AI["AI Processing"]
     YOLO[YOLOv8 Detection & Pose]
     Hands[MediaPipe Hands]
     Gesture[Gesture Engine]
   end
 
-  subgraph CTRL[Control & Safety]
+  subgraph CTRL["Control & Safety"]
     Line[Line Controller (PLC-ready)]
     Alarm[Alarm System]
   end
@@ -285,40 +286,40 @@ flowchart LR
 - Backend: Flask API with threaded camera service and detection pipeline
 
 
-> See full details in docs/Architecture.md
+> See full details in [docs/Architecture.md](docs/Architecture.md)
 
 ---
 
 ## 🏭 **Enterprise Deployment Guide**
 
-For deployment patterns (Docker/Kubernetes), PLC/MES integration, and observability, see docs/EnterpriseDeployment.md.
+For deployment patterns (Docker/Kubernetes), PLC/MES integration, and observability, see [docs/EnterpriseDeployment.md](docs/EnterpriseDeployment.md).
 
 ---
 
 ## 🔧 **Enterprise Integration**
 
 Integration examples (PLC/MES), cloud/edge deployment patterns, and security/compliance are documented in:
-- docs/Architecture.md
-- docs/EnterpriseDeployment.md
-- docs/Security.md
+- [docs/Architecture.md](docs/Architecture.md)
+- [docs/EnterpriseDeployment.md](docs/EnterpriseDeployment.md)
+- [docs/Security.md](docs/Security.md)
 
 ---
 
 ## 📊 **Performance & Scalability**
 
-See docs/Performance.md for benchmarking guidance, example results, and scaling tips.
+See [docs/Performance.md](docs/Performance.md) for benchmarking guidance, example results, and scaling tips.
 
 ---
 
 ## 🚦 **Safety & Compliance**
 
-See docs/Security.md for hardening guidance and compliance considerations.
+See [docs/Security.md](docs/Security.md) for hardening guidance and compliance considerations.
 
 ---
 
 ## 🔒 **Security Hardening**
 
-See docs/Security.md.
+See [docs/Security.md](docs/Security.md).
 
 ---
 

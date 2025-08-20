@@ -12,22 +12,22 @@ This document describes the system architecture, components, and data flow.
 ## Mermaid Diagram
 ```mermaid
 flowchart LR
-  subgraph FE[Frontend]
+  subgraph FE["Frontend"]
     UI[React 18 UI]
   end
 
-  subgraph API[Backend API (Flask)]
+  subgraph API["Backend API (Flask)"]
     APIServer[Flask REST API]
     Camera[Camera Service (threaded)]
   end
 
-  subgraph AI[AI Processing]
+  subgraph AI["AI Processing"]
     YOLO[YOLOv8 Detection & Pose]
     Hands[MediaPipe Hands]
     Gesture[Gesture Engine]
   end
 
-  subgraph CTRL[Control & Safety]
+  subgraph CTRL["Control & Safety"]
     Line[Line Controller (PLC-ready)]
     Alarm[Alarm System]
   end
